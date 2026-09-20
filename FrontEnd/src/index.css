@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+
+:root {
+  font-family:
+    "Aptos",
+    "Segoe UI",
+    sans-serif;
+  background: #fafaf9;
+  color: #1c1917;
+}
+
+body {
+  margin: 0;
+}
