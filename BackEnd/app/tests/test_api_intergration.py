@@ -82,10 +82,10 @@ def test_get_document_returns_document(
     db_session,
 ):
     document = models.Document(
-    filename="medical.pdf",
-    file_type="pdf",
-    status="completed",
-    storage_key="internal-123.pdf",
+        filename="medical.pdf",
+        file_type="pdf",
+        status="completed",
+        storage_key="internal-123.pdf",
     )
 
     db_session.add(document)

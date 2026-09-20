@@ -4,6 +4,7 @@ import { Spinner } from './Spinner'
 interface ExtractedContentPanelProps {
   blocks: ContentBlock[]
   error: string | null
+  fileType: string | null
   hasSelectedDocument: boolean
   hasNextPage: boolean
   hasPreviousPage: boolean
@@ -17,6 +18,7 @@ interface ExtractedContentPanelProps {
 export function ExtractedContentPanel({
   blocks,
   error,
+  fileType,
   hasSelectedDocument,
   hasNextPage,
   hasPreviousPage,
@@ -26,6 +28,8 @@ export function ExtractedContentPanel({
   pageLabel,
   status,
 }: ExtractedContentPanelProps) {
+  const isPdf = fileType?.toLowerCase() === 'pdf'
+
   return (
     <section className="flex w-full min-w-0 flex-col rounded-2xl border border-stone-200 bg-white p-5 shadow-sm lg:min-h-0">
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -79,10 +83,9 @@ export function ExtractedContentPanel({
               className="w-full min-w-0 rounded-xl border border-stone-200 bg-stone-50 p-4"
             >
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-stone-500">
-                <span className="shrink-0">Sequence {block.sequence}</span>
-                {block.page_number !== null ? (
-                  <span className="shrink-0">Page {block.page_number}</span>
-                ) : null}
+                <span className="shrink-0">
+                  {isPdf ? `Page ${block.page_number ?? block.sequence}` : `Paragraph ${block.sequence}`}
+                </span>
                 <span className="min-w-0 max-w-full break-words rounded-full border border-stone-200 bg-white px-2 py-0.5 text-stone-700">
                   {block.extraction_method}
                 </span>

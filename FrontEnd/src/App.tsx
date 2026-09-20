@@ -8,7 +8,7 @@ import { UploadPanel } from './components/UploadPanel'
 import { getDocument, getDocumentBlocks, getDocuments, uploadDocument } from './api/documents'
 import type { ContentBlock, Document } from './types/documents'
 
-const POLLING_INTERVAL_MS = 5000
+const POLLING_INTERVAL_MS = 2000
 const DOCX_BLOCKS_PAGE_SIZE = 5
 const PDF_BLOCK_FETCH_SIZE = 50
 type SourcePanel = 'history' | 'upload'
@@ -260,6 +260,7 @@ function App() {
           <ExtractedContentPanel
             blocks={visibleBlocks}
             error={blocksError}
+            fileType={selectedDocument?.file_type ?? null}
             hasSelectedDocument={selectedDocument !== null}
             hasNextPage={hasNextContentPage}
             hasPreviousPage={hasPreviousContentPage}
@@ -276,10 +277,10 @@ function App() {
                 ? () => setPdfPageIndex((currentIndex) => Math.max(0, currentIndex - 1))
                 : selectedDocument
                   ? () =>
-                      void loadContentBlocks(
-                        selectedDocument,
-                        Math.max(0, blocksOffset - DOCX_BLOCKS_PAGE_SIZE),
-                      )
+                    void loadContentBlocks(
+                      selectedDocument,
+                      Math.max(0, blocksOffset - DOCX_BLOCKS_PAGE_SIZE),
+                    )
                   : undefined
             }
             pageLabel={
@@ -343,6 +344,7 @@ function App() {
             <ExtractedContentPanel
               blocks={visibleBlocks}
               error={blocksError}
+              fileType={selectedDocument?.file_type ?? null}
               hasSelectedDocument={selectedDocument !== null}
               hasNextPage={hasNextContentPage}
               hasPreviousPage={hasPreviousContentPage}
@@ -352,10 +354,10 @@ function App() {
                   ? () => setPdfPageIndex((currentIndex) => currentIndex + 1)
                   : selectedDocument
                     ? () =>
-                        void loadContentBlocks(
-                          selectedDocument,
-                          blocksOffset + DOCX_BLOCKS_PAGE_SIZE,
-                        )
+                      void loadContentBlocks(
+                        selectedDocument,
+                        blocksOffset + DOCX_BLOCKS_PAGE_SIZE,
+                      )
                     : undefined
               }
               onPreviousPage={
@@ -363,10 +365,10 @@ function App() {
                   ? () => setPdfPageIndex((currentIndex) => Math.max(0, currentIndex - 1))
                   : selectedDocument
                     ? () =>
-                        void loadContentBlocks(
-                          selectedDocument,
-                          Math.max(0, blocksOffset - DOCX_BLOCKS_PAGE_SIZE),
-                        )
+                      void loadContentBlocks(
+                        selectedDocument,
+                        Math.max(0, blocksOffset - DOCX_BLOCKS_PAGE_SIZE),
+                      )
                     : undefined
               }
               pageLabel={
@@ -449,11 +451,10 @@ function SourcePanelTabs({
         return (
           <button
             aria-current={isActive ? 'page' : undefined}
-            className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-              isActive
+            className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${isActive
                 ? 'bg-green-800 text-white shadow-sm'
                 : 'bg-stone-50 text-stone-700 hover:bg-green-50 hover:text-green-900'
-            }`}
+              }`}
             key={tab.panel}
             onClick={() => onPanelChange(tab.panel)}
             type="button"

@@ -147,8 +147,8 @@ def upload_document(
         raise HTTPException(status_code=500, detail="An error occurred while saving the document.")
 
     background_tasks.add_task(
-    process_document,
-    document.id,
+        process_document,
+        document.id,
     )
 
     return document
