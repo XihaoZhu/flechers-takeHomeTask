@@ -1,5 +1,6 @@
 
 from app.ocr.client import MockOCRClient, OCRClient
+from app.config import UPLOAD_DIR
 
 from ..database import SessionLocal
 from ..models import Document, ContentBlock
@@ -14,8 +15,6 @@ from pathlib import Path
 def process_document(document_id: int):
 
     db = SessionLocal()
-
-    UPLOAD_DIR = Path("uploads")
 
     document = None
 

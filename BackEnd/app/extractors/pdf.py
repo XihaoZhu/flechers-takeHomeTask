@@ -17,7 +17,7 @@ def extract_pdf(file_path: Path,
 
         for page_number, page in enumerate(document.pages(), start=1):
             text = page.get_text("text")
-            if not should_use_ocr(page, text):
+            if not should_use_ocr(text):
                 blocks.append(ExtractedBlock(text=text,
                                             page_number=page_number,
                                             extraction_method='pdf_text'
@@ -39,7 +39,7 @@ def extract_pdf(file_path: Path,
 
 MIN_USABLE_CHARACTERS = 20
 
-def should_use_ocr(page: pymupdf.Page,text: str) -> bool:
+def should_use_ocr(text: str) -> bool:
     
     usable_characters = sum(
         character.isalnum()

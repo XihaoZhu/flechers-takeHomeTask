@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from app.schemas import DocumentResponse,  ContentBlockListResponse, DocumentListResponse, DocumentUploadResponse
+from app.config import UPLOAD_DIR
 
 from . import models
 from .database import Base, engine
@@ -6,7 +7,8 @@ from .dependencies import get_db
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile, BackgroundTasks
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, BackgroundTasks, Query
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from uuid import uuid4
@@ -15,22 +17,29 @@ import shutil
 
 from .services.document_processors import process_document
 
-
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
-
-supported_file_types = [".pdf", ".docx"]
+supported_file_types = {".pdf", ".docx"}
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Document Processing Pipeline")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
-@app.get("/documents/{document_id}")
+
+#region Document Endpoints
+@app.get("/documents/{document_id}",
+         response_model=DocumentResponse)
 def get_document(document_id: int,
                 db: Session = Depends(get_db)
                 ):
@@ -39,46 +48,55 @@ def get_document(document_id: int,
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found.")
 
-    return {
-        'id': document.id,
-        'filename': document.filename,
-        'file_type': document.file_type,
-        'status': document.status,
-        'storage_key': document.storage_key,
-        'error_message': document.error_message,
-        'created_at': document.created_at,
-        'updated_at': document.updated_at,
-        }
+    return document
+#endregion
 
-@app.get("/documents/{document_id}/blocks")
+#region Content Block Endpoints
+@app.get("/documents/{document_id}/blocks",
+         response_model=ContentBlockListResponse)
 def get_document_blocks(
     document_id: int,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_db),
     ):
+
+    document = db.get(models.Document, document_id)
+
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    
     blocks = db.query(models.ContentBlock).filter(models.ContentBlock.document_id == document_id).order_by(models.ContentBlock.sequence).offset(offset).limit(limit).all()
 
-    items = []
-
-    for block in blocks:
-        items.append({
-            'id': block.id,
-            'sequence': block.sequence,
-            'page_number': block.page_number,
-            'text': block.text,
-            'extraction_method': block.extraction_method,
-        })
 
     return {
-        'document_id': document_id,
+        "document_id": document_id,
+        "offset": offset,
+        "limit": limit,
+        "blocks": blocks,
+        }
+#endregion
+
+#region Document List Endpoint
+@app.get('/documents', response_model=DocumentListResponse)
+def list_documents(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    ):
+
+    documents = db.query(models.Document).order_by(models.Document.created_at.desc()).offset(offset).limit(limit).all()
+
+    return {
         'offset': offset,
         'limit': limit,
-        'blocks': items,
+        'documents': documents,
     }
+#endregion
 
-
-@app.post("/documents")
+#region Document Upload Endpoint
+@app.post("/documents",
+          response_model=DocumentUploadResponse)
 def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile,
@@ -95,9 +113,6 @@ def upload_document(
     storage_key = f"{uuid4()}{file_extension}"
     file_path = UPLOAD_DIR / storage_key
 
-    with open(file_path, "wb") as output:
-        shutil.copyfileobj(file.file,output)
-
     match file_extension:
         case ".pdf":
             file_type = "pdf"
@@ -105,16 +120,20 @@ def upload_document(
             file_type = "docx"
 
     status = "uploaded"
-    
 
-    document = models.Document(
-        filename=filename,
-        file_type=file_type,
-        status=status,
-        storage_key=storage_key,
-    )
+
 
     try:
+        with open(file_path, "wb") as output:
+            shutil.copyfileobj(file.file,output)
+
+        document = models.Document(
+            filename=filename,
+            file_type=file_type,
+            status=status,
+            storage_key=storage_key,
+        )
+
         db.add(document)
         db.commit()
         db.refresh(document)
@@ -132,9 +151,5 @@ def upload_document(
     document.id,
     )
 
-    return {
-        'id': document.id,
-        'filename': document.filename,
-        'status': document.status,
-    }
-
+    return document
+#endregion
