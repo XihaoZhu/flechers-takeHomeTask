@@ -196,11 +196,11 @@ def validate_file_content(file_path: Path, file_extension: str) -> None:
     if file_extension == ".pdf":
         with open(file_path, "rb") as file:
             if file.read(5) != b"%PDF-":
-                raise ValueError("File ends with .pdf but does not match PDF format.")
+                raise ValueError("Invalid PDF file")
 
     elif file_extension == ".docx":
         if not zipfile.is_zipfile(file_path):
-            raise ValueError("File ends with .docx but does not match DOCX format.")
+            raise ValueError("Invalid Docx file or it's empty")
 
         with zipfile.ZipFile(file_path) as archive:
             names = set(archive.namelist())

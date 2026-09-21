@@ -1,6 +1,10 @@
-backend/.venv/
 __pycache__/
 *.pyc
 .env
-backend/uploads/
 backend/documents.db
+.venv/
+node_modules/
+.pytest_cache/
+documents.db
+uploads/
+dist/
