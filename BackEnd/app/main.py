@@ -15,6 +15,8 @@ from uuid import uuid4
 
 import shutil
 
+import zipfile
+
 from .services.document_processors import process_document
 
 supported_file_types = {".pdf", ".docx"}
@@ -125,7 +127,9 @@ def upload_document(
 
     try:
         with open(file_path, "wb") as output:
-            shutil.copyfileobj(file.file,output)
+            shutil.copyfileobj(file.file, output)
+
+        validate_file_content(file_path, file_extension)     
 
         document = models.Document(
             filename=filename,
@@ -138,6 +142,14 @@ def upload_document(
         db.commit()
         db.refresh(document)
     
+    except ValueError as error:
+        db.rollback()
+
+        if file_path.exists():
+            file_path.unlink()
+
+        raise HTTPException(status_code=400, detail=str(error))
+
     except Exception:
         db.rollback()
 
@@ -153,3 +165,24 @@ def upload_document(
 
     return document
 #endregion
+
+    
+def validate_file_content(file_path: Path, file_extension: str) -> None:
+
+    if file_extension == ".pdf":
+        with open(file_path, "rb") as file:
+            if file.read(5) != b"%PDF-":
+                raise ValueError("File content does not match PDF format.")
+
+    elif file_extension == ".docx":
+        if not zipfile.is_zipfile(file_path):
+            raise ValueError("File content does not match DOCX format.")
+
+        with zipfile.ZipFile(file_path) as archive:
+            names = set(archive.namelist())
+
+            if (
+                "[Content_Types].xml" not in names
+                or "word/document.xml" not in names
+            ):
+                raise ValueError("File content does not match DOCX format.")
