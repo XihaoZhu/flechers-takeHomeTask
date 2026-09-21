@@ -16,7 +16,8 @@ def extract_pdf(
 
     with pymupdf.open(file_path) as document:
 
-        # A pdf file can be a mix of digital and scanned formats, so the extraction method was decided for each page
+        # PDFs may contain both digital and scanned pages,
+        # so the extraction method is selected per page.
         for page_number, page in enumerate(document.pages(), start=1):
             text = page.get_text("text")
             if not should_use_ocr(text):
@@ -43,7 +44,7 @@ MIN_USABLE_CHARACTERS = 20
 
 
 
-#orc is involved if not enough valid text is extracted as if it's a digital pdf
+# Use OCR when native extraction does not return enough usable text.
 def should_use_ocr(text: str) -> bool:
 
     usable_characters = sum(character.isalnum() for character in text)

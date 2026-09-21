@@ -1,5 +1,5 @@
 from app.config import UPLOAD_DIR
-from app.ocr.client import MockOCRClient
+from app.ocr.client import get_ocr_client
 
 from ..database import SessionLocal
 from ..extractors.docx import extract_docx
@@ -25,11 +25,11 @@ def process_document(document_id: int):
 
         db.commit()
 
-        # different file types share the same process before and after getting in the specifc extraction methods and return a same format of data extracted
+        # Extractors normalise different file types into the same block structure.
         if document.file_type == "docx":
             extracted_blocks = extract_docx(file_path)
         elif document.file_type == "pdf":
-            extracted_blocks = extract_pdf(file_path, ocr_client=MockOCRClient())
+            extracted_blocks = extract_pdf(file_path, ocr_client=get_ocr_client())
         else:
             raise ValueError(f"Unsupported file type: {document.file_type}")
 
@@ -48,8 +48,8 @@ def process_document(document_id: int):
 
         db.commit()
 
-    # API boundary, atch unexpected persistence/filesystem errors here
-    # ruff doesn't get it so ignored
+    # Keep background processing failures attached to the document
+    # instead of leaving it permanently in the processing state.
     except Exception as e: # noqa: BLE001
         db.rollback()
 

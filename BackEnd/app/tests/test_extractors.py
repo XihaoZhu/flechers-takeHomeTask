@@ -48,7 +48,7 @@ def test_extract_docx(tmp_path):
 def test_extract_pdf_with_digital_text(tmp_path):
     file_path = tmp_path / "digital.pdf"
 
-    orc_client = Mock()
+    ocr_client = Mock()
 
     document = pymupdf.open()
     page = document.new_page()
@@ -59,12 +59,12 @@ def test_extract_pdf_with_digital_text(tmp_path):
     document.save(file_path)
     document.close()
 
-    blocks = extract_pdf(file_path, ocr_client=orc_client)
+    blocks = extract_pdf(file_path, ocr_client=ocr_client)
 
     assert len(blocks) == 1
     assert blocks[0].extraction_method == "pdf_text"
     assert "digital PDF" in blocks[0].text
-    orc_client.extract_text.assert_not_called()
+    ocr_client.extract_text.assert_not_called()
 
 
 def test_extract_pdf_uses_ocr_when_no_embedded_text(tmp_path):
@@ -75,16 +75,16 @@ def test_extract_pdf_uses_ocr_when_no_embedded_text(tmp_path):
     document.save(file_path)
     document.close()
 
-    orc_client = Mock()
-    orc_client.extract_text.return_value = "This is the OCR extracted text."
+    ocr_client = Mock()
+    ocr_client.extract_text.return_value = "This is the OCR extracted text."
 
-    blocks = extract_pdf(file_path, ocr_client=orc_client)
+    blocks = extract_pdf(file_path, ocr_client=ocr_client)
 
     assert len(blocks) == 1
     assert blocks[0].extraction_method == "pdf_ocr"
     assert blocks[0].page_number == 1
     assert blocks[0].text == "This is the OCR extracted text."
-    orc_client.extract_text.assert_called_once()
+    ocr_client.extract_text.assert_called_once()
 
 
 # endregion
