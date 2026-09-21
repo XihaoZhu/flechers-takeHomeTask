@@ -1,17 +1,15 @@
-from app import models
-from app.main import app
-from app.dependencies import get_db
-
-from fastapi.testclient import TestClient
+from datetime import datetime, timezone
 
 import pytest
-
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app import models
 from app.database import Base
+from app.dependencies import get_db
+from app.main import app
 
-from datetime import datetime
 
 @pytest.fixture
 def db_session(tmp_path):
@@ -36,6 +34,7 @@ def db_session(tmp_path):
         yield db
     finally:
         db.close()
+
 
 @pytest.fixture
 def client(db_session):
@@ -69,13 +68,13 @@ def test_database_fixture(db_session):
     assert saved_document is not None
     assert saved_document.filename == "test.pdf"
 
+
 def test_get_document_returns_404_when_not_found(client):
     response = client.get("/documents/999")
 
     assert response.status_code == 404
-    assert response.json() == {
-    "detail": "Document not found."
-    }
+    assert response.json() == {"detail": "Document not found."}
+
 
 def test_get_document_returns_document(
     client,
@@ -94,8 +93,9 @@ def test_get_document_returns_document(
     response = client.get(f"/documents/{document.id}")
 
     assert response.status_code == 200
-    assert response.json()['status'] == "completed"
-    assert 'storage_key' not in response.json()
+    assert response.json()["status"] == "completed"
+    assert "storage_key" not in response.json()
+
 
 def test_list_documents_order(client, db_session):
     document1 = models.Document(
@@ -103,7 +103,7 @@ def test_list_documents_order(client, db_session):
         file_type="pdf",
         status="completed",
         storage_key="doc1.pdf",
-        created_at=datetime(2024, 1, 1, 12, 0, 0),
+        created_at=datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
     )
 
     document2 = models.Document(
@@ -111,7 +111,7 @@ def test_list_documents_order(client, db_session):
         file_type="pdf",
         status="completed",
         storage_key="doc2.pdf",
-        created_at=datetime(2024, 1, 2, 12, 0, 0),
+        created_at=datetime(2024, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
     )
 
     db_session.add_all([document1, document2])
@@ -120,10 +120,11 @@ def test_list_documents_order(client, db_session):
     response = client.get("/documents")
 
     assert response.status_code == 200
-    documents = response.json()['documents']
+    documents = response.json()["documents"]
     assert len(documents) == 2
-    assert documents[0]['filename'] == "new.pdf"
-    assert documents[1]['filename'] == "old.pdf"
+    assert documents[0]["filename"] == "new.pdf"
+    assert documents[1]["filename"] == "old.pdf"
+
 
 def test_block_sequence_order(client, db_session):
     document = models.Document(
@@ -166,12 +167,9 @@ def test_block_sequence_order(client, db_session):
     response = client.get(f"/documents/{document.id}/blocks")
 
     assert response.status_code == 200
-    blocks = response.json()['blocks']
+    blocks = response.json()["blocks"]
     assert len(blocks) == 3
-    sequences = [
-        block["sequence"]
-        for block in response.json()["blocks"]
-    ]
+    sequences = [block["sequence"] for block in response.json()["blocks"]]
     assert sequences == [1, 2, 3]
 
 

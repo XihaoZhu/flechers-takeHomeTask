@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
+#just make it more readable and used with fastapi to limit the data type
 class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,10 +32,12 @@ class ContentBlockListResponse(BaseModel):
     limit: int
     blocks: list[ContentBlockResponse]
 
+
 class DocumentListResponse(BaseModel):
     offset: int
     limit: int
     documents: list[DocumentResponse]
+
 
 class DocumentUploadResponse(BaseModel):
     id: int

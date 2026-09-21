@@ -1,17 +1,15 @@
 import zipfile
 
 import pytest
+from docx import Document as DocxDocument
 
 from app.main import validate_file_content
-
-from docx import Document as DocxDocument
 
 
 def test_rejects_fake_pdf(tmp_path):
 
     fake_pdf = tmp_path / "fake.pdf"
     fake_pdf.write_bytes(b"This is not actually a PDF file.")
-
 
     with pytest.raises(ValueError):
         validate_file_content(fake_pdf, ".pdf")

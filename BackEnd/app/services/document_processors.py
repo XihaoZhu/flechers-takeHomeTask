@@ -1,15 +1,10 @@
-
-from app.ocr.client import MockOCRClient, OCRClient
 from app.config import UPLOAD_DIR
+from app.ocr.client import MockOCRClient
 
 from ..database import SessionLocal
-from ..models import Document, ContentBlock
 from ..extractors.docx import extract_docx
 from ..extractors.pdf import extract_pdf
-
-from pathlib import Path
-
-
+from ..models import ContentBlock, Document
 
 
 def process_document(document_id: int):
@@ -19,7 +14,6 @@ def process_document(document_id: int):
     document = None
 
     try:
-
         document = db.get(Document, document_id)
 
         if document is None:
@@ -28,9 +22,10 @@ def process_document(document_id: int):
         file_path = UPLOAD_DIR / document.storage_key
 
         document.status = "processing"
-        
+
         db.commit()
 
+        # different file types share the same process before and after getting in the specifc extraction methods and return a same format of data extracted
         if document.file_type == "docx":
             extracted_blocks = extract_docx(file_path)
         elif document.file_type == "pdf":
@@ -42,7 +37,7 @@ def process_document(document_id: int):
             content_block = ContentBlock(
                 document_id=document.id,
                 sequence=sequence,
-                page_number=block.page_number, 
+                page_number=block.page_number,
                 text=block.text,
                 extraction_method=block.extraction_method,
             )
@@ -53,8 +48,9 @@ def process_document(document_id: int):
 
         db.commit()
 
-    except Exception as e:
-
+    # API boundary, atch unexpected persistence/filesystem errors here
+    # ruff doesn't get it so ignored
+    except Exception as e: # noqa: BLE001
         db.rollback()
 
         if document:

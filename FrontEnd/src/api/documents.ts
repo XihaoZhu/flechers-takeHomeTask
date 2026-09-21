@@ -5,7 +5,7 @@ import {
     type DocumentUploadResponse,
 } from "../types/documents";
 
-const API_BASE_URL = "http://localhost:8000";
+import { API_BASE_URL } from '../API_BASE_URL'
 
 export async function getDocuments(offset = 0, limit = 10): Promise<DocumentListResponse> {
     const response = await fetch(`${API_BASE_URL}/documents?offset=${offset}&limit=${limit}`);
@@ -27,7 +27,8 @@ export async function uploadDocument(file: File): Promise<DocumentUploadResponse
         body: formData,
     })
     if (!response.ok) {
-        throw new Error("Failed to upload document");
+        const errorData = await response.json()
+        throw new Error(`Failed to upload document: ${errorData.detail}`)
     }
 
     return response.json();

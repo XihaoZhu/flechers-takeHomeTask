@@ -1,22 +1,23 @@
-from app.schemas import DocumentResponse,  ContentBlockListResponse, DocumentListResponse, DocumentUploadResponse
+import shutil
+import zipfile
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
 from app.config import UPLOAD_DIR
+from app.schemas import (
+    ContentBlockListResponse,
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentUploadResponse,
+)
 
 from . import models
 from .database import Base, engine
 from .dependencies import get_db
-
-from pathlib import Path
-
-from fastapi import Depends, FastAPI, HTTPException, UploadFile, BackgroundTasks, Query
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-
-from uuid import uuid4
-
-import shutil
-
-import zipfile
-
 from .services.document_processors import process_document
 
 supported_file_types = {".pdf", ".docx"}
@@ -39,66 +40,80 @@ def health_check():
     return {"status": "ok"}
 
 
-#region Document Endpoints
-@app.get("/documents/{document_id}",
-         response_model=DocumentResponse)
-def get_document(document_id: int,
-                db: Session = Depends(get_db)
-                ):
+# region Document Endpoints
+@app.get("/documents/{document_id}", response_model=DocumentResponse)
+def get_document(document_id: int, db: Session = Depends(get_db)):
     document = db.get(models.Document, document_id)
 
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found.")
 
     return document
-#endregion
+# endregion
 
-#region Content Block Endpoints
-@app.get("/documents/{document_id}/blocks",
-         response_model=ContentBlockListResponse)
+
+# region Content Block Endpoints
+@app.get("/documents/{document_id}/blocks", response_model=ContentBlockListResponse)
 def get_document_blocks(
     document_id: int,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_db),
-    ):
+):
 
     document = db.get(models.Document, document_id)
 
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found.")
-    
-    blocks = db.query(models.ContentBlock).filter(models.ContentBlock.document_id == document_id).order_by(models.ContentBlock.sequence).offset(offset).limit(limit).all()
 
+    blocks = (
+        db.query(models.ContentBlock)
+        .filter(models.ContentBlock.document_id == document_id)
+        .order_by(models.ContentBlock.sequence)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     return {
         "document_id": document_id,
         "offset": offset,
         "limit": limit,
         "blocks": blocks,
-        }
-#endregion
+    }
 
-#region Document List Endpoint
-@app.get('/documents', response_model=DocumentListResponse)
+
+# endregion
+
+
+# region Document List Endpoint for history
+@app.get("/documents", response_model=DocumentListResponse)
 def list_documents(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_db),
-    ):
+):
 
-    documents = db.query(models.Document).order_by(models.Document.created_at.desc()).offset(offset).limit(limit).all()
+    documents = (
+        db.query(models.Document)
+        .order_by(models.Document.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     return {
-        'offset': offset,
-        'limit': limit,
-        'documents': documents,
+        "offset": offset,
+        "limit": limit,
+        "documents": documents,
     }
-#endregion
 
-#region Document Upload Endpoint
-@app.post("/documents",
-          response_model=DocumentUploadResponse)
+
+# endregion
+
+
+# region Document Upload Endpoint
+@app.post("/documents", response_model=DocumentUploadResponse)
 def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile,
@@ -108,10 +123,15 @@ def upload_document(
     if not filename:
         raise HTTPException(status_code=400, detail="No file name provided.")
 
+
+    # before a deeper file format check there is a shallow one with file extention
     file_extension = Path(filename).suffix.lower()
     if file_extension not in supported_file_types:
-        raise HTTPException(status_code=400, detail=f"This take home task only supports {supported_file_types} only.")
-    
+        raise HTTPException(
+            status_code=400,
+            detail=f"This take home task only supports {supported_file_types} only.",
+        )
+
     storage_key = f"{uuid4()}{file_extension}"
     file_path = UPLOAD_DIR / storage_key
 
@@ -121,15 +141,14 @@ def upload_document(
         case ".docx":
             file_type = "docx"
 
+    #status change to uploaded after uploading and then will change to processing after the background task starts
     status = "uploaded"
-
-
 
     try:
         with open(file_path, "wb") as output:
             shutil.copyfileobj(file.file, output)
 
-        validate_file_content(file_path, file_extension)     
+        validate_file_content(file_path, file_extension)
 
         document = models.Document(
             filename=filename,
@@ -141,7 +160,8 @@ def upload_document(
         db.add(document)
         db.commit()
         db.refresh(document)
-    
+
+    # if error throws, roll back db and unlink the file path
     except ValueError as error:
         db.rollback()
 
@@ -149,14 +169,16 @@ def upload_document(
             file_path.unlink()
 
         raise HTTPException(status_code=400, detail=str(error))
-
-    except Exception:
+    # same with the other place, API boundary, so igore ruff
+    except Exception:  # noqa: BLE001
         db.rollback()
 
         if file_path.exists():
             file_path.unlink()
 
-        raise HTTPException(status_code=500, detail="An error occurred while saving the document.")
+        raise HTTPException(
+            status_code=500, detail="An error occurred while saving the document."
+        )
 
     background_tasks.add_task(
         process_document,
@@ -164,25 +186,24 @@ def upload_document(
     )
 
     return document
-#endregion
 
-    
+
+# endregion
+
+# validate the file format
 def validate_file_content(file_path: Path, file_extension: str) -> None:
 
     if file_extension == ".pdf":
         with open(file_path, "rb") as file:
             if file.read(5) != b"%PDF-":
-                raise ValueError("File content does not match PDF format.")
+                raise ValueError("File ends with .pdf but does not match PDF format.")
 
     elif file_extension == ".docx":
         if not zipfile.is_zipfile(file_path):
-            raise ValueError("File content does not match DOCX format.")
+            raise ValueError("File ends with .docx but does not match DOCX format.")
 
         with zipfile.ZipFile(file_path) as archive:
             names = set(archive.namelist())
 
-            if (
-                "[Content_Types].xml" not in names
-                or "word/document.xml" not in names
-            ):
-                raise ValueError("File content does not match DOCX format.")
+            if "[Content_Types].xml" not in names or "word/document.xml" not in names:
+                raise ValueError("File ends with .docx but does not match DOCX format.")

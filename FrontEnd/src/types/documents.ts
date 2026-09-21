@@ -1,3 +1,4 @@
+// All interfaces were created based on the backend schemas to create a consistance
 export interface Document {
     id: number;
     filename: string;
